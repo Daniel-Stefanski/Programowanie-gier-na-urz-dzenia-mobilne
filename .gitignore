@@ -1,0 +1,69 @@
+# Unity - cache i pliki automatycznie generowane
+# Reguly bez poczatkowego / dzialaja takze w Lab1/, Lab2/, itd.
+.utmp/
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# IDE / narzedzia
+.vs/
+.idea/
+.gradle/
+.consulo/
+ExportedObj/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.DotSettings.user
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Unity - logi i raporty awarii
+*.log
+sysinfo.txt
+mono_crash.*
+crashlytics-build.properties
+
+# Unity - pliki zapasowe/importy
+*.blend1
+*.blend1.meta
+
+# Zbudowane paczki gier - nie sa kodem zrodlowym projektu
+*.apk
+*.aab
+*.unitypackage
+*.unitypackage.meta
+*.app
+
+# System operacyjny
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Unity Addressables - automatycznie generowane dane
+**/[Aa]ssets/StreamingAssets/aa*
+**/[Aa]ssets/AddressableAssetsData/*/*.bin*
+**/[Aa]ssets/AddressableAssetsData/link.xml*
+**/[Aa]ssets/Addressables_Temp*
+ServerData/
+
+# NIE ignorujemy Assets/, Packages/, ProjectSettings/ ani ogolnie *.meta.
