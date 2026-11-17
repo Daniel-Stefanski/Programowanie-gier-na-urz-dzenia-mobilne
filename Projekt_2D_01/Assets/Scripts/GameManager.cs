@@ -1,20 +1,40 @@
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    [Header("Zasady rozgrywki")]
+    [Header("Zasady rozgrywki - z Etapu 1")]
     [SerializeField] private int startingLives = 3;
     [SerializeField] private int goldenEggsForExtraLife = 3;
 
-    [Header("Efekt rozbicia")]
+    [Header("Efekt rozbicia - z Etapu 1")]
     [SerializeField] private Sprite brokenEggSprite;
     [SerializeField] private float brokenEggY = -3.9f;
+
+    [Header("HUD - Etap 2")]
+    [SerializeField] private TMP_Text scoreText;
+    [SerializeField] private TMP_Text goldenProgressText;
+    [SerializeField] private Image[] heartImages = new Image[3];
+    [SerializeField] private Sprite fullHeartSprite;
+    [SerializeField] private Sprite emptyHeartSprite;
+    [SerializeField] private GameObject pauseButton;
+
+    [Header("Game Over - Etap 2")]
+    [SerializeField] private GameObject gameOverPanel;
+    [SerializeField] private TMP_Text finalScoreText;
+
+    [Header("Pauza - Etap 2")]
+    [SerializeField] private GameObject pausePanel;
 
     public bool IsGameOver { get; private set; }
     public int Score => score;
 
+    private bool isPaused;
     private int score;
     private int lives;
     private int caughtNormal;
@@ -32,12 +52,31 @@ public class GameManager : MonoBehaviour
         }
 
         Instance = this;
+        Time.timeScale = 1f;
         ResetStatistics();
+    }
+
+    private void Start()
+    {
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(false);
+
+        if (pausePanel != null)
+            pausePanel.SetActive(false);
+
+        if (pauseButton != null)
+            pauseButton.SetActive(true);
+
+        RefreshUI();
     }
 
     private void Update()
     {
-        if (IsGameOver || !Input.GetMouseButtonDown(0))
+        if (IsGameOver || isPaused || !Input.GetMouseButtonDown(0))
+            return;
+
+        // Klikniecia UI nie powinny zbierac jajek znajdujacych sie pod przyciskami.
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             return;
 
         Camera camera = Camera.main;
@@ -48,19 +87,18 @@ public class GameManager : MonoBehaviour
         }
 
         Vector3 cursorWorld = camera.ScreenToWorldPoint(Input.mousePosition);
-
-        // Transformy jajek przemieszczaja sie w Update; zsynchronizuj je
-        // przed sprawdzeniem trafienia w Collider 2D.
         Physics2D.SyncTransforms();
 
-        Collider2D hit = Physics2D.OverlapPoint(new Vector2(cursorWorld.x, cursorWorld.y));
+        Collider2D hit = Physics2D.OverlapPoint(
+            new Vector2(cursorWorld.x, cursorWorld.y));
+
         if (hit != null && hit.TryGetComponent(out FallingEgg egg))
             egg.Collect();
     }
 
     public void EggCaught(FallingEgg egg)
     {
-        if (IsGameOver)
+        if (IsGameOver || isPaused)
             return;
 
         switch (egg.Type)
@@ -88,16 +126,19 @@ public class GameManager : MonoBehaviour
                 caughtRotten++;
                 break;
         }
+
+        RefreshUI();
     }
 
     public void EggMissed(FallingEgg egg)
     {
-        if (IsGameOver || egg.Type == EggType.Zgnile)
+        if (IsGameOver || isPaused || egg.Type == EggType.Zgnile)
             return;
 
         missedGoodEggs++;
         lives = Mathf.Max(0, lives - 1);
         ShowBrokenEgg(egg.transform.position.x);
+        RefreshUI();
 
         if (lives == 0)
             FinishGame();
@@ -121,9 +162,26 @@ public class GameManager : MonoBehaviour
     private void FinishGame()
     {
         IsGameOver = true;
+        isPaused = false;
+        Time.timeScale = 1f;
 
-        foreach (FallingEgg egg in FindObjectsByType<FallingEgg>(FindObjectsSortMode.None))
+        foreach (FallingEgg egg in
+            FindObjectsByType<FallingEgg>(FindObjectsSortMode.None))
+        {
             Destroy(egg.gameObject);
+        }
+
+        if (finalScoreText != null)
+            finalScoreText.text = "Twój wynik: " + score;
+
+        if (pausePanel != null)
+            pausePanel.SetActive(false);
+
+        if (pauseButton != null)
+            pauseButton.SetActive(false);
+
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(true);
     }
 
     private void ResetStatistics()
@@ -135,44 +193,96 @@ public class GameManager : MonoBehaviour
         caughtRotten = 0;
         missedGoodEggs = 0;
         IsGameOver = false;
+        isPaused = false;
     }
 
-    private void RestartGame()
+    private void RefreshUI()
     {
-        foreach (FallingEgg egg in FindObjectsByType<FallingEgg>(FindObjectsSortMode.None))
+        if (scoreText != null)
+            scoreText.text = "Wynik: " + score;
+
+        if (goldenProgressText != null)
+        {
+            int progress = goldenEggsForExtraLife > 0
+                ? caughtGolden % goldenEggsForExtraLife
+                : 0;
+            goldenProgressText.text = goldenEggsForExtraLife > 0
+                ? "Złote do życia: " + progress + "/" + goldenEggsForExtraLife
+                : "Bonus życia wyłączony";
+        }
+
+        if (heartImages == null)
+            return;
+
+        for (int i = 0; i < heartImages.Length; i++)
+        {
+            if (heartImages[i] == null)
+                continue;
+
+            heartImages[i].sprite = i < lives
+                ? fullHeartSprite
+                : emptyHeartSprite;
+        }
+    }
+
+    public void RestartGame()
+    {
+        Time.timeScale = 1f;
+
+        foreach (FallingEgg egg in
+            FindObjectsByType<FallingEgg>(FindObjectsSortMode.None))
+        {
             Destroy(egg.gameObject);
+        }
 
         ResetStatistics();
+
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(false);
+
+        if (pausePanel != null)
+            pausePanel.SetActive(false);
+
+        if (pauseButton != null)
+            pauseButton.SetActive(true);
 
         EggSpawner spawner = FindFirstObjectByType<EggSpawner>();
         if (spawner != null)
             spawner.ResetTimer();
+
+        RefreshUI();
     }
 
-    // Tymczasowe liczniki TESTOWE. W etapie 2 zastapimy je docelowym UI.
-    private void OnGUI()
+    public void PauseGame()
     {
-        GUI.Box(new Rect(12, 12, 310, 118), "TEST - ETAP 1");
-        GUI.Label(new Rect(26, 37, 275, 25), "Punkty: " + score);
-        GUI.Label(new Rect(26, 60, 275, 25), "Zycia: " + lives + " / " + startingLives);
-        GUI.Label(new Rect(26, 83, 275, 25),
-            "Zlapane: " + (caughtNormal + caughtGolden + caughtRotten) +
-            " | Pominiete: " + missedGoodEggs);
-
-        if (!IsGameOver)
+        if (IsGameOver || isPaused)
             return;
 
-        float panelX = Screen.width / 2f - 180f;
-        float panelY = Screen.height / 2f - 90f;
+        isPaused = true;
+        Time.timeScale = 0f;
 
-        GUI.Box(new Rect(panelX, panelY, 360f, 180f), "KONIEC GRY");
-        GUI.Label(new Rect(panelX + 70f, panelY + 48f, 260f, 28f),
-            "Wynik koncowy: " + score);
+        if (pausePanel != null)
+            pausePanel.SetActive(true);
+    }
 
-        if (GUI.Button(new Rect(panelX + 70f, panelY + 100f, 220f, 43f),
-            "Zagraj ponownie"))
-        {
-            RestartGame();
-        }
+    public void ResumeGame()
+    {
+        isPaused = false;
+        Time.timeScale = 1f;
+
+        if (pausePanel != null)
+            pausePanel.SetActive(false);
+    }
+
+    public void ReturnToMenu()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene("SzalonyKurnik_Menu");
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
     }
 }
